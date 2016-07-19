@@ -62,6 +62,11 @@ const gitTasks = opts => {
 	return new Listr(tasks);
 };
 
+const getPackageJson = () => {
+	return fsP.readFile('package.json', 'utf8')
+		.then(JSON.parse);
+};
+
 module.exports = (input, opts) => {
 	input = input || 'patch';
 	opts = opts || {};
@@ -90,16 +95,22 @@ module.exports = (input, opts) => {
 	]);
 
 	if (runCleanup) {
-		tasks.add([
-			{
+		if (opts.cleanupTask) {
+			tasks.add({
+				title: 'Cleanup',
+				task: () => exec('npm', ['run', opts.cleanupTask])
+			});
+		} else {
+			tasks.add({
 				title: 'Cleanup',
 				task: () => del('node_modules')
-			},
-			{
-				title: 'Installing dependencies',
-				task: () => exec('npm', ['install'])
-			}
-		]);
+			});
+		}
+
+		tasks.add({
+			title: 'Installing dependencies',
+			task: () => exec('npm', ['install'])
+		});
 	}
 
 	if (runTests) {
@@ -109,14 +120,27 @@ module.exports = (input, opts) => {
 		});
 	}
 
-	tasks.add([
-		{
+	if (opts.versionTask) {
+		tasks.add({
+			title: 'Bumping version',
+			task: () => exec('npm', ['run', opts.versionTask, '--', input])
+		});
+	} else {
+		tasks.add({
 			title: 'Bumping version',
 			task: () => exec('npm', ['version', input])
-		},
+		});
+	}
+
+	tasks.add([
 		{
 			title: 'Publishing package',
-			task: () => exec('npm', ['publish'].concat(opts.tag ? ['--tag', opts.tag] : []))
+			task: () => getPackageJson()
+				.then(packageJson => {
+					if (!packageJson.private) {
+						exec('npm', ['publish'].concat(opts.tag ? ['--tag', opts.tag] : []))
+					}
+				})
 		},
 		{
 			title: 'Pushing tags',
@@ -125,6 +149,5 @@ module.exports = (input, opts) => {
 	]);
 
 	return tasks.run()
-		.then(() => fsP.readFile('package.json', 'utf8'))
-		.then(JSON.parse);
+		.then(() => getPackageJson());
 };

@@ -16,6 +16,8 @@ const cli = meow(`
 	  --skip-cleanup  Skips cleanup of node_modules
 	  --yolo          Skips cleanup and testing
 	  --tag           Publish under a given dist-tag
+	  --cleanup-task  Name of the custom npm run script to perform cleanup
+	  --version-task  Name of the custom npm run script to perform version bumping
 
 	Examples
 	  $ np patch
